@@ -12,7 +12,7 @@ function useGenerations(interval: number = 5000) {
 
   const fetchGenerations = async () => {
     try {
-      const response = await fetch("/api/fal/generations");
+      const response = await fetch("/api/fal/checkingstatus");
       const data = await response.json();
       const generationData= data.prompts
       setGenerations(generationData);

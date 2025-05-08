@@ -75,6 +75,13 @@ const VideoUploadForm: React.FC = () => {
         throw new Error(response.data.error || "Upload failed");
       }
 
+      const promptDataForGeneration = {
+        prompt: response.data.prompt.prompt,
+        referenceVideoUrl: response.data.prompt.referenceVideoUrl,
+        _id: response.data.prompt._id,
+      };
+
+      // Store prompt data for generation
       setPromptData({
         prompt: response.data.prompt.prompt,
         referenceVideoUrl: response.data.prompt.referenceVideoUrl,
@@ -82,19 +89,37 @@ const VideoUploadForm: React.FC = () => {
         screenRatio: response.data.screenRatio
       });
 
+      // Start the AI video generation process with the stored data
+      await generateAiVideo(promptDataForGeneration);
+
+      // Now that generation has started, we can clear the form
+
+      // 1. Reset form input states
       setPrompt("");
       setFileUrl(null);
 
-      // Clear the Uploadcare widget after successful submission
-      if (uploaderRef.current && uploaderRef.current.clearFiles) {
-        uploaderRef.current.clearFiles();
+      // 2. Try different approaches to clear the uploader widget
+      if (uploaderRef.current) {
+        // Try direct clearFiles method
+        if (typeof uploaderRef.current.clearFiles === 'function') {
+          uploaderRef.current.clearFiles();
+        }
+        // Try API reset method
+        else if (uploaderRef.current.api && typeof uploaderRef.current.api.reset === 'function') {
+          uploaderRef.current.api.reset();
+        }
+        // Try emitting a custom event to force reset
+        else if (uploaderRef.current.dispatchEvent) {
+          try {
+            uploaderRef.current.dispatchEvent(new CustomEvent('uploadcare:clear'));
+          } catch (e) {
+            console.log('Could not dispatch clear event to uploadcare widget');
+          }
+        }
       }
 
-      await generateAiVideo({
-        prompt: response.data.prompt.prompt,
-        referenceVideoUrl: response.data.prompt.referenceVideoUrl,
-        _id: response.data.prompt._id,
-      })
+      // 3. Refresh the generations list to show the new item
+      refreshGenerations();
     } catch (error: any) {
       console.error("Upload failed:", error.response?.data || error.message);
       alert("Upload failed!");
