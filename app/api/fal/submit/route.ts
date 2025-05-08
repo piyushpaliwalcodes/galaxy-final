@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           enable_safety_checker: true,
           strength: 0.85
        },
-        webhookUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/fal/webhook`,
+        webhookUrl: `${process.env.NEXT_PUBLIC_VERCEL_URL}/api/fal/webhook`,
       }
     );
 

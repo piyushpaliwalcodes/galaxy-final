@@ -3,7 +3,7 @@ import { fal } from "@fal-ai/client";
 
 export async function POST(request: NextRequest) {
     try {
-        console.log(`${process.env.NEXT_PUBLIC_BASE_URL}/api/fal/status`);
+        console.log(`${process.env.NEXT_PUBLIC_VERCEL_URL }/api/fal/status`);
         const body = await request.json();
         const { requestId } = body;
 
