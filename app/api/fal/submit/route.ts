@@ -9,7 +9,7 @@ import dbConnect from "@/lib/db";
 
 
 fal.config({
-  credentials: process.env.FAL_API_KEY
+  credentials: process.env.NEXT_PUBLIC_FAL_API_KEY || process.env.FAL_API_KEY
 });
 
 export async function POST(request: NextRequest) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           enable_safety_checker: true,
           strength: 0.85
        },
-        webhookUrl: `${process.env.NEXT_PUBLIC_VERCEL_URL}/api/fal/webhook`,
+        webhookUrl: `${process.env.VERCEL_URL}/api/fal/webhook`,
       }
     );
 
