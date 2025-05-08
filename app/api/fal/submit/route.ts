@@ -124,8 +124,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare webhook URL
-    let webhookUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/api/fal/webhook` : undefined;
+    let webhookUrl = process.env.VERCEL_URL ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/fal/webhook` : undefined;
     
+
+    console.log("🔹 Webhook URL:=-------------->", webhookUrl);
     // If we're in development or no VERCEL_URL, try to construct from request
     if (!webhookUrl && process.env.NODE_ENV === "development") {
       try {

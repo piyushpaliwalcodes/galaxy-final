@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
 
         // Get the base URL for webhooks, similar to the submit route
         let baseUrl = process.env.NEXT_PUBLIC_VERCEL_URL;
+
+        
         console.log(`🔹 Initial base URL from environment: ${baseUrl || "Not configured"}`);
         
         // Make sure baseUrl has a protocol
