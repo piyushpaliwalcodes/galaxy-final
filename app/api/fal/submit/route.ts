@@ -37,11 +37,24 @@ export async function POST(request: NextRequest) {
     console.log("🔹 Parsing request body...");
     const body = await request.json();
     const { userPrompt, referenceVideoUrl, promptId, screenRatio } = body;
+    
+    // Debug log for Vercel environment
+    console.log("🔹 Environment variables:", {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      hasVercelUrl: !!process.env.VERCEL_URL,
+      vercelUrl: process.env.VERCEL_URL,
+      hasApiKey: !!process.env.FAL_API_KEY,
+      apiKeyLength: process.env.FAL_API_KEY ? process.env.FAL_API_KEY.length : 0
+    });
+    
     console.log("🔹 Generation request details:", {
       promptId,
       screenRatio: screenRatio || "16:9",
       promptLength: userPrompt?.length || 0,
-      videoUrlProvided: !!referenceVideoUrl
+      videoUrlProvided: !!referenceVideoUrl,
+      videoUrlLength: referenceVideoUrl?.length || 0,
+      videoUrlPrefix: referenceVideoUrl?.substring(0, 20) + "..." || ""
     });
     
     // Check for missing fields
@@ -54,6 +67,33 @@ export async function POST(request: NextRequest) {
         { error: "Missing required fields: userPrompt or referenceVideoUrl" },
         { status: 400 }
       );
+    }
+    
+    // Validate reference video URL format
+    if (referenceVideoUrl) {
+      try {
+        const url = new URL(referenceVideoUrl);
+        console.log("🔹 Reference video URL validation:", {
+          protocol: url.protocol,
+          host: url.host,
+          isHttps: url.protocol === "https:",
+          hasValidProtocol: url.protocol === "http:" || url.protocol === "https:"
+        });
+        
+        if (url.protocol !== "http:" && url.protocol !== "https:") {
+          console.error("❌ Invalid video URL protocol:", url.protocol);
+          return NextResponse.json(
+            { error: "Invalid video URL protocol. Must be http or https." },
+            { status: 400 }
+          );
+        }
+      } catch (urlError) {
+        console.error("❌ Invalid video URL format:", urlError);
+        return NextResponse.json(
+          { error: "Invalid video URL format" },
+          { status: 400 }
+        );
+      }
     }
 
     // Check for API key
@@ -83,6 +123,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Prepare webhook URL
+    let webhookUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}/api/fal/webhook` : undefined;
+    
+    // If we're in development or no VERCEL_URL, try to construct from request
+    if (!webhookUrl && process.env.NODE_ENV === "development") {
+      try {
+        const host = request.headers.get('host');
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        if (host) {
+          webhookUrl = `${protocol}://${host}/api/fal/webhook`;
+          console.log(`🔹 Constructed webhook URL from request headers: ${webhookUrl}`);
+        }
+      } catch (headerError) {
+        console.warn(`⚠️ Could not construct webhook URL from headers:`, headerError);
+      }
+    }
+
     console.log("🔹 Submitting request to Fal.AI with parameters:", {
       model: "fal-ai/hunyuan-video/video-to-video",
       steps: 30,
@@ -90,45 +147,99 @@ export async function POST(request: NextRequest) {
       aspect_ratio: screenRatio || "16:9",
       strength: 0.85,
       safety_checker: true,
-      webhook: !!process.env.VERCEL_URL
+      webhook: webhookUrl || "Not configured",
+      prompt_length: userPrompt.length,
+      video_url_valid: !!referenceVideoUrl
     });
     
-    const startTime = Date.now();
-    const { request_id } = await fal.queue.submit(
-      "fal-ai/hunyuan-video/video-to-video",
-      {
-        input: { 
-          prompt: userPrompt, 
-          video_url: referenceVideoUrl,
-          num_inference_steps: 30,
-          aspect_ratio: screenRatio || "16:9",
-          resolution: "720p",
-          enable_safety_checker: true,
-          strength: 0.85
-       },
-        webhookUrl: `${process.env.VERCEL_URL}/api/fal/webhook`,
-      }
-    );
-    const requestTime = Date.now() - startTime;
-
-    console.log(`🔹 Request submitted successfully in ${requestTime}ms:`, { 
-      request_id,
-      webhookUrl: process.env.VERCEL_URL ? `${process.env.VERCEL_URL}/api/fal/webhook` : "Not configured" 
-    });
-
-    console.log(`🔹 Updating prompt record with request ID: ${request_id}`);
-    try {
-      await Prompt.findByIdAndUpdate(promptId, { requestId: request_id });
-      console.log(`🔹 Successfully updated prompt ${promptId} with request ID ${request_id}`);
-    } catch (updateError) {
-      console.error(`❌ Failed to update prompt ${promptId} with request ID:`, updateError);
-      // Continue anyway, as the main request was successful
+    // Prepare the request payload
+    const requestPayload = {
+      input: { 
+        prompt: userPrompt, 
+        video_url: referenceVideoUrl,
+        num_inference_steps: 30,
+        aspect_ratio: screenRatio || "16:9",
+        resolution: "720p",
+        enable_safety_checker: true,
+        strength: 0.85
+      },
+      webhookUrl
+    };
+    
+    // Filter out undefined values from webhookUrl
+    if (!webhookUrl) {
+      delete requestPayload.webhookUrl;
+      console.log("🔹 Webhook URL not provided, removed from request payload");
     }
+    
+    console.log("🔹 Full request payload:", JSON.stringify({
+      ...requestPayload,
+      input: {
+        ...requestPayload.input,
+        prompt: userPrompt.length > 20 ? userPrompt.substring(0, 20) + "..." : userPrompt,
+        video_url: referenceVideoUrl.length > 20 ? referenceVideoUrl.substring(0, 20) + "..." : referenceVideoUrl
+      }
+    }, null, 2));
+    
+    const startTime = Date.now();
+    try {
+      const { request_id } = await fal.queue.submit(
+        "fal-ai/hunyuan-video/video-to-video",
+        requestPayload
+      );
+      const requestTime = Date.now() - startTime;
 
-    return NextResponse.json(
-      { message: "Request submitted", requestId: request_id },
-      { status: 200 }
-    );
+      console.log(`🔹 Request submitted successfully in ${requestTime}ms:`, { 
+        request_id,
+        webhookUrl
+      });
+
+      console.log(`🔹 Updating prompt record with request ID: ${request_id}`);
+      try {
+        await Prompt.findByIdAndUpdate(promptId, { requestId: request_id });
+        console.log(`🔹 Successfully updated prompt ${promptId} with request ID ${request_id}`);
+      } catch (updateError) {
+        console.error(`❌ Failed to update prompt ${promptId} with request ID:`, updateError);
+        // Continue anyway, as the main request was successful
+      }
+
+      return NextResponse.json(
+        { message: "Request submitted", requestId: request_id },
+        { status: 200 }
+      );
+    } catch (apiError) {
+      console.error("❌ Fal.AI API error:", apiError);
+      
+      // Extract API error response
+      let apiErrorMessage = "Unknown API error";
+      let apiErrorBody = {};
+      let apiErrorStatus = 500;
+      
+      if (apiError && typeof apiError === 'object') {
+        if ('status' in apiError) {
+          apiErrorStatus = (apiError as any).status || 500;
+        }
+        if ('body' in apiError) {
+          apiErrorBody = (apiError as any).body || {};
+          console.error("❌ API error body:", JSON.stringify(apiErrorBody, null, 2));
+        }
+        if ('message' in apiError) {
+          apiErrorMessage = (apiError as any).message || "Unknown API error";
+        }
+      }
+      
+      console.error(`❌ Fal.AI API rejected request with status ${apiErrorStatus}: ${apiErrorMessage}`);
+      
+      return NextResponse.json(
+        { 
+          error: "Fal.AI API rejected request", 
+          message: apiErrorMessage,
+          details: apiErrorBody,
+          status: apiErrorStatus
+        },
+        { status: apiErrorStatus }
+      );
+    }
   } catch (error: unknown) {
     console.error("❌ Error submitting request:", error);
     
