@@ -85,6 +85,11 @@ const VideoUploadForm: React.FC = () => {
       setPrompt("");
       setFileUrl(null);
 
+      // Clear the Uploadcare widget after successful submission
+      if (uploaderRef.current && uploaderRef.current.clearFiles) {
+        uploaderRef.current.clearFiles();
+      }
+
       await generateAiVideo({
         prompt: response.data.prompt.prompt,
         referenceVideoUrl: response.data.prompt.referenceVideoUrl,
