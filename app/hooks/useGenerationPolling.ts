@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-function useGenerations(interval: number = 5000) {
+function useGenerations(interval: number = 10000) {
   const [generations, setGenerations] = useState<{
     requestId: string;
     referenceVideoUrl: string;
