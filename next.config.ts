@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
       "cdn.prod.website-files.com",
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/(.*)",
+        destination: "/"
+      }
+    ];
+  },
 };
 
 export default nextConfig;
