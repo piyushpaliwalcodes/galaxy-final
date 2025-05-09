@@ -3,7 +3,7 @@
 import React, { useRef, useState } from "react";
 import UploadcareUploader from "@/components/UploadcareUploader";
 import axios from "axios";
-import { useUser, UserButton, SignIn } from "@clerk/nextjs";
+import { useUser, UserButton, SignIn, SignUp } from "@clerk/nextjs";
 import useGenerations from "@/app/hooks/useGenerationPolling";
 
 interface PromptData {
@@ -420,7 +420,7 @@ const VideoUploadForm: React.FC = () => {
 
         {/* Sign-in overlay - now showing only the Clerk component */}
         <div className="absolute inset-0 flex items-center justify-center z-10">
-          <SignIn redirectUrl="/" />
+          <SignUp forceRedirectUrl="/" />
         </div>
       </div>
     );
