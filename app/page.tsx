@@ -36,6 +36,7 @@ const VideoUploadForm: React.FC = () => {
         promptId: promptData?._id,
         referenceVideoUrl: promptData?.referenceVideoUrl,
         userPrompt: promptData?.prompt,
+        screenRatio: promptData?.screenRatio
       });
 
       if (response.status !== 200) {
@@ -79,6 +80,7 @@ const VideoUploadForm: React.FC = () => {
         prompt: response.data.prompt.prompt,
         referenceVideoUrl: response.data.prompt.referenceVideoUrl,
         _id: response.data.prompt._id,
+        screenRatio: response.data.screenRatio
       };
 
       // Store prompt data for generation
@@ -140,8 +142,10 @@ const VideoUploadForm: React.FC = () => {
       // Set deleting state for this specific card
       setIsDeleting(prev => ({ ...prev, [id]: true }));
 
-      // Call delete API
-      const response = await axios.delete(`/api/videos/${id}`);
+      // Call delete API with ID in the request body
+      const response = await axios.delete('/api/videos/delete', {
+        data: { id }
+      });
 
       if (response.status === 200) {
         // Refresh the list after successful deletion

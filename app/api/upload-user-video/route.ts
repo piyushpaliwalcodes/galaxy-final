@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         // Get screen ratio, provide default values in case height or width are missing
         const width = cloudinaryUpload.width || 1920;
         const height = cloudinaryUpload.height || 1080;
-        const screenRatio = getScreenRatio(height, width);
+        const screenRatio = getScreenRatio(width, height);
 
         return NextResponse.json({ message: "Video uploaded successfully", prompt: newPrompt, screenRatio: screenRatio }, { status: 200 });
     } catch (error: unknown) {
